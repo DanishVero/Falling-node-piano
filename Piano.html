@@ -42,8 +42,14 @@
            box-shadow: 0 10px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.02) inset; }
   #piano { touch-action: none; cursor: pointer; }
   #staff { margin-top: 12px; }
-  #seek { width: 100%; margin: 14px 0 0; accent-color: var(--accent); }
-  .panel { margin-top: 14px; padding: 14px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .logo { width: 38px; height: 38px; filter: drop-shadow(0 4px 14px rgba(124,108,255,0.55)); }
+  #seek { -webkit-appearance: none; appearance: none; width: 100%; height: 8px; margin: 18px 0 0; border-radius: 99px; outline: none; cursor: pointer; --p: 0%;
+          background: linear-gradient(90deg, var(--accent) 0, var(--accent2) var(--p), rgba(255,255,255,0.12) var(--p)); }
+  #seek::-webkit-slider-thumb { -webkit-appearance: none; width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 0; box-shadow: 0 0 0 4px rgba(124,108,255,0.45), 0 2px 10px rgba(0,0,0,0.5); }
+  #seek::-moz-range-thumb { width: 20px; height: 20px; border-radius: 50%; background: #fff; border: 0; box-shadow: 0 0 0 4px rgba(124,108,255,0.45); }
+  .timeRow { display: flex; justify-content: space-between; font-size: 0.78rem; color: var(--muted); margin-top: 6px; font-variant-numeric: tabular-nums; }
+  .panel { margin-top: 14px; padding: 16px 18px; background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.025)); border: 1px solid var(--line); border-radius: 20px; backdrop-filter: blur(10px); box-shadow: 0 10px 40px rgba(0,0,0,0.35); }
   .row { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; }
   .row + .row { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
   .row label { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--muted); }
@@ -62,6 +68,7 @@
   input[type=range].small { width: 140px; }
   #midiStatus { color: var(--muted); font-size: 0.88rem; }
   #pHandBox { display: none; }
+  #play { padding: 12px 26px; font-size: 1.02rem; }
   .legend { display: flex; gap: 16px; font-size: 0.85rem; color: var(--muted); margin-top: 12px; flex-wrap: wrap; }
   .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; box-shadow: 0 0 8px currentColor; }
   .note { font-size: 0.8rem; color: var(--muted); margin-top: 14px; }
@@ -71,7 +78,7 @@
 <body>
 <main>
   <div class="top">
-    <h1>Klaver<span>træner</span></h1>
+    <div class="brand"><svg class="logo" viewBox="0 0 32 32" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7c6cff"/><stop offset="1" stop-color="#38d6c4"/></linearGradient></defs><rect width="32" height="32" rx="9" fill="url(#lg)"/><rect x="6" y="7" width="4" height="12" rx="1.5" fill="#fff" opacity=".95"/><rect x="14" y="7" width="4" height="8" rx="1.5" fill="#fff" opacity=".75"/><rect x="22" y="7" width="4" height="15" rx="1.5" fill="#fff" opacity=".9"/><rect x="5" y="23" width="22" height="3" rx="1.5" fill="#fff" opacity=".5"/></svg><h1>Klaver<span>træner</span></h1></div>
     <div class="modes" role="radiogroup" aria-label="Tilstand">
       <label><input type="radio" name="mode" value="listen" checked><span>▶ Lyt</span></label>
       <label><input type="radio" name="mode" value="practice"><span>🎯 Øv</span></label>
@@ -87,6 +94,7 @@
   <canvas id="piano"></canvas>
   <canvas id="staff"></canvas>
   <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Spol i sangen">
+  <div class="timeRow"><span id="tNow">0:00</span><span id="tEnd">0:00</span></div>
 
   <div class="panel">
     <div class="row">
@@ -674,7 +682,8 @@
   var playBtn2 = playBtn;
   var down = {}, live = {}, pedal = false, pedalHeld = [];
   var modeHelp = $('modeHelp'), statsEl = $('stats'), pHandSel = $('pHand'), pHandBox = $('pHandBox');
-  var midiStatus = $('midiStatus'), connectBtn = $('connect');
+  var midiStatus = $('midiStatus'), connectBtn = $('connect'), tNow = $('tNow'), tEnd = $('tEnd');
+  function fmt(sec) { var m = Math.floor(sec / 60), x = Math.floor(sec % 60); return m + ':' + (x < 10 ? '0' : '') + x; }
   var HELP = {
     listen: 'Lyt: sangen spiller af sig selv, og du kan se, hvilke tangenter der bliver trykket.',
     practice: 'Øv: sangen venter på dig. Tryk de tangenter, der lyser, så går den videre.',
@@ -829,99 +838,200 @@
     return a;
   }
 
+  var parts = [], prevOn = {}, lastPaint = 0;
+  function hex2rgb(h) { return [parseInt(h.substr(1, 2), 16), parseInt(h.substr(3, 2), 16), parseInt(h.substr(5, 2), 16)]; }
+  function rgba(h, a) { var c = hex2rgb(h); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + a + ')'; }
+  function lighten(h, f) { var c = hex2rgb(h).map(function (v) { return Math.round(v + (255 - v) * f); }); return 'rgb(' + c[0] + ',' + c[1] + ',' + c[2] + ')'; }
+  var DOWNC = '#5eead4';
+
   function drawPiano() {
-    var ctx = pctx;
+    var ctx = pctx, k, mm, i;
+    var nowMs = performance.now();
+    var pdt = Math.min(0.05, (nowMs - (lastPaint || nowMs)) / 1000);
+    lastPaint = nowMs;
+
+    // baggrund med dybde
     var bg = ctx.createLinearGradient(0, 0, 0, KB.top);
-    bg.addColorStop(0, '#0b0e1f');
-    bg.addColorStop(1, '#161b38');
+    bg.addColorStop(0, '#070916');
+    bg.addColorStop(1, '#141a3a');
     ctx.fillStyle = bg;
     ctx.fillRect(0, 0, PW, PH);
 
-    // lodrette hjælpelinjer (kraftigere ved hver C)
-    var k, mm;
-    ctx.lineWidth = 1;
+    // skiftende baner (hver anden hvid tangent) og lodrette linjer
     for (mm = LO; mm <= HI; mm++) {
       k = keys[mm];
       if (k.black) continue;
-      ctx.strokeStyle = pcOf(mm) === 0 ? 'rgba(255,255,255,0.14)' : 'rgba(255,255,255,0.05)';
-      ctx.beginPath();
-      ctx.moveTo(k.x, 0);
-      ctx.lineTo(k.x, KB.top);
-      ctx.stroke();
+      if (Math.floor((k.x - KB.x0) / k.w) % 2 === 0) { ctx.fillStyle = 'rgba(255,255,255,0.018)'; ctx.fillRect(k.x, 0, k.w, KB.top); }
+      ctx.strokeStyle = pcOf(mm) === 0 ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.045)';
+      ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(k.x + 0.5, 0); ctx.lineTo(k.x + 0.5, KB.top); ctx.stroke();
     }
+    // vandrette sekundlinjer, som glider med musikken
+    var s0 = Math.ceil(T);
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    for (var sec = s0; sec < T + KB.top / FALL + 1; sec++) {
+      var ly = KB.top - (sec - T) * FALL;
+      ctx.beginPath(); ctx.moveTo(0, ly); ctx.lineTo(PW, ly); ctx.stroke();
+    }
+    // blød glød nederst
+    var floor = ctx.createLinearGradient(0, KB.top - 90, 0, KB.top);
+    floor.addColorStop(0, 'rgba(124,108,255,0)');
+    floor.addColorStop(1, 'rgba(124,108,255,0.13)');
+    ctx.fillStyle = floor;
+    ctx.fillRect(0, KB.top - 90, PW, 90);
 
     // faldende noder
     var alpha = fade.value / 100;
     if (alpha > 0 && mode !== 'free') {
       ctx.save();
-      ctx.beginPath();
-      ctx.rect(0, 0, PW, KB.top);
-      ctx.clip();
+      ctx.beginPath(); ctx.rect(0, 0, PW, KB.top); ctx.clip();
       ctx.globalAlpha = alpha;
-      for (var i = 0; i < notes.length; i++) {
+      for (i = 0; i < notes.length; i++) {
         var n = notes[i];
         var yb = KB.top - (n.t - T) * FALL;
-        if (yb < 0) break;                       // noderne er sorteret, resten er længere oppe
+        if (yb < 0) break;
         var yt = yb - n.d * FALL;
         if (yt > KB.top) continue;
         k = keys[n.m];
         if (!k) continue;
-        var x = k.black ? k.x : k.x + 1;
-        var w = k.black ? k.w : k.w - 2;
-        ctx.shadowColor = COL[n.hand];
-        ctx.shadowBlur = 14;
-        ctx.fillStyle = COL[n.hand];
-        rr(ctx, x, yt, w, Math.max(6, yb - yt) - 2, 4);
+        var x = k.black ? k.x : k.x + 1.5;
+        var w = k.black ? k.w : k.w - 3;
+        var h = Math.max(8, yb - yt) - 2;
+        var c = COL[n.hand];
+        var g = ctx.createLinearGradient(x, yt, x + w, yt);
+        g.addColorStop(0, lighten(c, 0.35));
+        g.addColorStop(0.5, c);
+        g.addColorStop(1, rgba(c, 0.85));
+        ctx.shadowColor = rgba(c, 0.9);
+        ctx.shadowBlur = 9;
+        ctx.fillStyle = g;
+        rr(ctx, x, yt, w, h, 5);
         ctx.fill();
         ctx.shadowBlur = 0;
-        ctx.fillStyle = 'rgba(255,255,255,0.28)';
-        rr(ctx, x + 2, yt + 2, Math.max(1, w - 4), Math.min(5, Math.max(2, yb - yt - 6)), 2);
+        ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+        ctx.lineWidth = 1;
+        rr(ctx, x + 0.5, yt + 0.5, w - 1, h - 1, 4.5);
+        ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.35)';
+        rr(ctx, x + 2, yt + 2, Math.max(1, w - 4), Math.min(4, h - 4), 2);
         ctx.fill();
+        if (namesBox.checked && h >= 15) {
+          ctx.fillStyle = 'rgba(8,10,25,0.85)';
+          ctx.font = '700 ' + (k.black ? 8 : 10) + 'px system-ui, sans-serif';
+          ctx.textAlign = 'center';
+          ctx.fillText(PCNAME[pcOf(n.m)], x + w / 2, yb - 6);
+        }
       }
       ctx.restore();
     }
 
-    // tangenter
-    var act = activeMap();
+    // hvilke tangenter lyser, og nye anslag giver gnister
+    var act = activeMap(), on = {};
+    for (mm = LO; mm <= HI; mm++) {
+      var col = down[mm] ? DOWNC : (act[mm] ? COL[act[mm]] : null);
+      if (col) {
+        on[mm] = col;
+        if (!prevOn[mm]) {
+          k = keys[mm];
+          for (var q = 0; q < 9; q++) {
+            parts.push({ x: k.x + k.w / 2 + (Math.random() - 0.5) * k.w, y: KB.top - 2, vx: (Math.random() - 0.5) * 50,
+                         vy: -(40 + Math.random() * 150), life: 0.55 + Math.random() * 0.5, age: 0, col: col, r: 1.2 + Math.random() * 2 });
+          }
+        }
+      }
+    }
+    prevOn = on;
+
+    // lysstråler op fra de tangenter, der spilles
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    for (mm in on) {
+      k = keys[mm];
+      var bx = k.black ? k.x : k.x + 1, bw = k.black ? k.w : k.w - 2;
+      var beam = ctx.createLinearGradient(0, KB.top, 0, KB.top - 150);
+      beam.addColorStop(0, rgba(on[mm], 0.55));
+      beam.addColorStop(1, rgba(on[mm], 0));
+      ctx.fillStyle = beam;
+      ctx.fillRect(bx - 3, KB.top - 150, bw + 6, 150);
+    }
+    ctx.restore();
+
+    // tangenter (hvide først, så sorte)
     for (mm = LO; mm <= HI; mm++) {
       k = keys[mm];
       if (k.black) continue;
-      ctx.fillStyle = down[mm] ? '#5eead4' : (act[mm] ? COL[act[mm]] : '#f4f4f7');
-      ctx.fillRect(k.x + 0.5, KB.top, k.w - 1, KB.h);
+      var pc = on[mm], dy = pc ? 2 : 0;
+      var kg = ctx.createLinearGradient(0, KB.top, 0, KB.top + KB.h);
+      if (pc) { kg.addColorStop(0, lighten(pc, 0.15)); kg.addColorStop(1, pc); }
+      else { kg.addColorStop(0, '#ffffff'); kg.addColorStop(0.85, '#e9ebf5'); kg.addColorStop(1, '#c9cde0'); }
+      if (pc) { ctx.shadowColor = pc; ctx.shadowBlur = 22; }
+      ctx.fillStyle = kg;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(k.x, KB.top, k.w, KB.h + 4); ctx.clip();
+      rr(ctx, k.x + 0.75, KB.top - 8 + dy, k.w - 1.5, KB.h + 8 - dy, 5);
+      ctx.fill();
+      ctx.restore();
+      ctx.shadowBlur = 0;
       if (namesBox.checked) {
-        var pc = pcOf(mm), nm = NAMES[pc];
+        var pcn = pcOf(mm), nm = NAMES[pcn];
         if (nm) {
-          if (pc === 0) nm += (Math.floor(mm / 12) - 1);
-          ctx.fillStyle = '#333';
-          ctx.font = '10px system-ui, sans-serif';
+          if (pcn === 0) nm += (Math.floor(mm / 12) - 1);
+          ctx.fillStyle = pc ? '#0b1020' : '#6b7090';
+          ctx.font = '600 10px system-ui, sans-serif';
           ctx.textAlign = 'center';
-          ctx.fillText(nm, k.x + k.w / 2, KB.top + KB.h - 8);
+          ctx.fillText(nm, k.x + k.w / 2, KB.top + KB.h - 9 + dy);
         }
       }
     }
     for (mm = LO; mm <= HI; mm++) {
       k = keys[mm];
       if (!k.black) continue;
-      ctx.fillStyle = down[mm] ? '#2bbfa8' : (act[mm] ? COL[act[mm]] : '#1b1b22');
-      ctx.fillRect(k.x, KB.top, k.w, KB.bh);
+      var pb = on[mm];
+      var bgk = ctx.createLinearGradient(0, KB.top, 0, KB.top + KB.bh);
+      if (pb) { bgk.addColorStop(0, lighten(pb, 0.1)); bgk.addColorStop(1, pb); ctx.shadowColor = pb; ctx.shadowBlur = 20; }
+      else { bgk.addColorStop(0, '#2d2f40'); bgk.addColorStop(0.7, '#12131c'); bgk.addColorStop(1, '#05050a'); }
+      ctx.fillStyle = bgk;
+      ctx.save();
+      ctx.beginPath(); ctx.rect(k.x - 2, KB.top, k.w + 4, KB.bh + 8); ctx.clip();
+      rr(ctx, k.x, KB.top - 8, k.w, KB.bh + 8 - (pb ? 2 : 0), 3);
+      ctx.fill();
+      ctx.restore();
+      ctx.shadowBlur = 0;
+      if (!pb) { ctx.fillStyle = 'rgba(255,255,255,0.10)'; ctx.fillRect(k.x + 2, KB.top, k.w - 4, KB.bh - 10); }
     }
+
+    // gnister
+    ctx.save();
+    ctx.globalCompositeOperation = 'lighter';
+    parts = parts.filter(function (pt) { return pt.age < pt.life; });
+    parts.forEach(function (pt) {
+      pt.age += pdt; pt.x += pt.vx * pdt; pt.y += pt.vy * pdt; pt.vy += 160 * pdt;
+      var a = Math.max(0, 1 - pt.age / pt.life);
+      ctx.fillStyle = rgba(pt.col, a);
+      
+      ctx.beginPath(); ctx.arc(pt.x, pt.y, pt.r * (0.5 + a), 0, Math.PI * 2); ctx.fill();
+    });
+    ctx.restore();
 
     // trefflinje
     ctx.save();
     ctx.shadowColor = waiting ? '#5eead4' : '#7c6cff';
-    ctx.shadowBlur = 16;
-    ctx.fillStyle = waiting ? 'rgba(94,234,212,0.9)' : 'rgba(150,140,255,0.8)';
+    ctx.shadowBlur = 18;
+    ctx.fillStyle = waiting ? 'rgba(94,234,212,0.95)' : 'rgba(160,150,255,0.85)';
     ctx.fillRect(0, KB.top - 2, PW, 3);
     ctx.restore();
   }
 
   function drawStaff() {
     var ctx = sctx;
-    ctx.fillStyle = '#12162b';
+    var sbg = ctx.createLinearGradient(0, 0, 0, SH);
+    sbg.addColorStop(0, '#10142a');
+    sbg.addColorStop(1, '#0b0e1f');
+    ctx.fillStyle = sbg;
     ctx.fillRect(0, 0, SW, SH);
 
     // nodelinjer (diskant og bas)
-    ctx.strokeStyle = '#4a5080';
+    ctx.strokeStyle = 'rgba(170,178,230,0.42)';
     ctx.lineWidth = 1;
     [30, 32, 34, 36, 38, 18, 20, 22, 24, 26].forEach(function (s) {
       var y = yOf(s);
@@ -938,11 +1048,16 @@
     ctx.fillText('Bas', 16, yOf(18) + 22);
 
     // afspilningslinje
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.save();
+    ctx.shadowColor = '#7c6cff'; ctx.shadowBlur = 12;
+    ctx.strokeStyle = 'rgba(170,160,255,0.8)';
+    ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.moveTo(PLAYX, 4);
     ctx.lineTo(PLAYX, SH - 4);
     ctx.stroke();
+    ctx.restore();
+    ctx.lineWidth = 1;
 
     for (var i = 0; mode !== 'free' && i < notes.length; i++) {
       var n = notes[i];
@@ -1055,6 +1170,10 @@
     if (statsEl.textContent !== st) statsEl.textContent = st;
 
     seek.value = Math.max(0, Math.min(1000, Math.round((T - LEAD) / (END - LEAD) * 1000)));
+    seek.style.setProperty('--p', (seek.value / 10) + '%');
+    var tn = fmt(Math.max(0, T)), te = fmt(Math.max(0, END - 1.5));
+    if (tNow.textContent !== tn) tNow.textContent = tn;
+    if (tEnd.textContent !== te) tEnd.textContent = te;
     drawPiano();
     drawStaff();
     requestAnimationFrame(frame);
