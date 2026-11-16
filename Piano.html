@@ -3,84 +3,124 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Klaver – faldende noder</title>
+<title>Klavertræner – faldende noder</title>
 <style>
   :root {
-    --bg: #0f1220;
-    --panel: #181c30;
-    --line: #2a2f4d;
-    --text: #e8eaf6;
-    --muted: #9aa0c4;
-    --accent: #6c7bff;
+    --bg: #0a0d1c;
+    --panel: #12162b;
+    --card: rgba(255,255,255,0.04);
+    --line: rgba(255,255,255,0.10);
+    --text: #eef0ff;
+    --muted: #98a0c8;
+    --accent: #7c6cff;
+    --accent2: #38d6c4;
+    --orange: #ff9f43;
+    --blue: #4aa3ff;
   }
   * { box-sizing: border-box; }
+  html { color-scheme: dark; }
   body {
-    margin: 0;
-    background: var(--bg);
-    color: var(--text);
-    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-    line-height: 1.4;
+    margin: 0; min-height: 100vh; color: var(--text);
+    background: radial-gradient(900px 500px at 15% -10%, rgba(124,108,255,0.22), transparent 60%),
+                radial-gradient(800px 500px at 100% 0%, rgba(56,214,196,0.13), transparent 60%), var(--bg);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif; line-height: 1.45;
   }
-  main { max-width: 960px; margin: 0 auto; padding: 16px; }
-  h1 { font-size: 1.35rem; margin: 0 0 4px; }
-  .sub { margin: 0 0 14px; color: var(--muted); font-size: 0.92rem; }
-  canvas { display: block; width: 100%; height: auto; background: var(--panel); border-radius: 12px; }
-  #staff { margin-top: 10px; }
-  #seek { width: 100%; margin: 12px 0 0; }
-  .controls { display: flex; flex-wrap: wrap; gap: 12px 22px; align-items: center; margin: 12px 0 6px; }
-  .controls label { display: flex; align-items: center; gap: 8px; font-size: 0.92rem; }
+  main { max-width: 1000px; margin: 0 auto; padding: 18px 16px 40px; }
+  .top { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+  h1 { font-size: 1.6rem; margin: 0; letter-spacing: -0.02em; font-weight: 800; }
+  h1 span { background: linear-gradient(90deg, var(--accent), var(--accent2)); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .modes { display: inline-flex; padding: 4px; gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; }
+  .modes label { cursor: pointer; }
+  .modes input { position: absolute; opacity: 0; pointer-events: none; }
+  .modes span { display: block; padding: 9px 16px; border-radius: 10px; font-size: 0.95rem; font-weight: 600; color: var(--muted); transition: all .15s; white-space: nowrap; }
+  .modes input:checked + span { color: #fff; background: linear-gradient(135deg, var(--accent), #5b8cff); box-shadow: 0 4px 18px rgba(124,108,255,0.45); }
+  .modes input:focus-visible + span { outline: 2px solid var(--accent2); outline-offset: 2px; }
+  .sub { margin: 0 0 4px; color: var(--muted); font-size: 0.88rem; }
+  #modeHelp { color: var(--text); opacity: .85; margin: 6px 0 12px; font-size: 0.95rem; }
+  #stats { font-weight: 700; color: var(--accent2); min-height: 1.4em; margin: 0 0 8px; }
+  canvas { display: block; width: 100%; height: auto; background: var(--panel); border-radius: 16px; border: 1px solid var(--line);
+           box-shadow: 0 10px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(255,255,255,0.02) inset; }
+  #piano { touch-action: none; cursor: pointer; }
+  #staff { margin-top: 12px; }
+  #seek { width: 100%; margin: 14px 0 0; accent-color: var(--accent); }
+  .panel { margin-top: 14px; padding: 14px 16px; background: var(--card); border: 1px solid var(--line); border-radius: 16px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px 20px; align-items: center; }
+  .row + .row { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--line); }
+  .row label { display: flex; align-items: center; gap: 8px; font-size: 0.9rem; color: var(--muted); }
   button, .filebtn {
-    background: var(--accent); color: #fff; border: 0; border-radius: 8px;
-    padding: 9px 16px; font-size: 0.95rem; cursor: pointer; font-family: inherit;
+    background: linear-gradient(135deg, var(--accent), #5b8cff); color: #fff; border: 0; border-radius: 12px;
+    padding: 10px 18px; font-size: 0.95rem; font-weight: 600; cursor: pointer; font-family: inherit;
+    box-shadow: 0 4px 16px rgba(124,108,255,0.35); transition: transform .1s, filter .15s;
   }
-  button.secondary, .filebtn { background: var(--line); }
-  select {
-    background: var(--line); color: var(--text); border: 0; border-radius: 6px;
-    padding: 6px 8px; font-size: 0.9rem; font-family: inherit;
-  }
-  select:disabled { opacity: 0.5; }
-  input[type=range].small { width: 150px; }
-  .legend { display: flex; gap: 16px; font-size: 0.85rem; color: var(--muted); margin-top: 8px; flex-wrap: wrap; }
-  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; }
-  .note { font-size: 0.82rem; color: var(--muted); margin-top: 10px; }
+  button:hover, .filebtn:hover { filter: brightness(1.12); }
+  button:active, .filebtn:active { transform: translateY(1px); }
+  button.secondary, .filebtn { background: rgba(255,255,255,0.08); box-shadow: none; border: 1px solid var(--line); }
+  #connect { background: linear-gradient(135deg, #1fb8a6, #38d6c4); color: #05211d; box-shadow: 0 4px 16px rgba(56,214,196,0.3); }
+  select { background: rgba(255,255,255,0.08); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; font-size: 0.9rem; font-family: inherit; }
+  select:disabled { opacity: 0.45; }
+  input[type=range], input[type=checkbox] { accent-color: var(--accent); }
+  input[type=range].small { width: 140px; }
+  #midiStatus { color: var(--muted); font-size: 0.88rem; }
+  #pHandBox { display: none; }
+  .legend { display: flex; gap: 16px; font-size: 0.85rem; color: var(--muted); margin-top: 12px; flex-wrap: wrap; }
+  .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: middle; box-shadow: 0 0 8px currentColor; }
+  .note { font-size: 0.8rem; color: var(--muted); margin-top: 14px; }
+  @media (max-width: 640px) { h1 { font-size: 1.35rem; } .modes span { padding: 8px 11px; font-size: 0.88rem; } }
 </style>
 </head>
 <body>
 <main>
-  <h1>Klaver – faldende noder</h1>
+  <div class="top">
+    <h1>Klaver<span>træner</span></h1>
+    <div class="modes" role="radiogroup" aria-label="Tilstand">
+      <label><input type="radio" name="mode" value="listen" checked><span>▶ Lyt</span></label>
+      <label><input type="radio" name="mode" value="practice"><span>🎯 Øv</span></label>
+      <label><input type="radio" name="mode" value="free"><span>🎹 Frit spil</span></label>
+    </div>
+  </div>
   <p class="sub" id="songInfo"></p>
   <p class="sub" id="soundInfo"></p>
   <p class="sub" id="audioWarn" style="display:none;color:#ffb86b">Ingen lyd endnu? Tryk på Afspil igen, skru op, og på iPad/iPhone: slå lydløs-kontakten fra (eller fjern lydløs i kontrolcenteret).</p>
+  <p id="modeHelp"></p>
+  <p id="stats"></p>
 
   <canvas id="piano"></canvas>
   <canvas id="staff"></canvas>
   <input id="seek" type="range" min="0" max="1000" value="0" aria-label="Spol i sangen">
 
-  <div class="controls">
-    <button id="play">▶ Afspil</button>
-    <button id="restart" class="secondary">⏮ Forfra</button>
-    <label class="filebtn">📂 Åbn MIDI-fil<input id="midi" type="file" accept=".mid,.midi,audio/midi,audio/x-midi" hidden></label>
-    <label>Tempo <input id="tempo" class="small" type="range" min="25" max="150" step="5" value="100"> <span id="tempoVal">100%</span></label>
-    <label>Faldende noder <input id="fade" class="small" type="range" min="0" max="100" step="5" value="100"></label>
-    <label><input type="checkbox" id="byPitch" checked> Del hænder efter tonehøjde</label>
-    <label>Højre hånd fra <select id="split" aria-label="Hvor højre hånd begynder"></select></label>
-    <label><input id="names" type="checkbox" checked> Vis tastenavne</label>
-    <label><input id="showStaff" type="checkbox" checked> Vis noder</label>
+  <div class="panel">
+    <div class="row">
+      <button id="play">▶ Afspil</button>
+      <button id="restart" class="secondary">⏮ Forfra</button>
+      <label class="filebtn">📂 Åbn MIDI-fil<input id="midi" type="file" accept=".mid,.midi,audio/midi,audio/x-midi" hidden></label>
+      <label>Tempo <input id="tempo" class="small" type="range" min="25" max="150" step="5" value="100"> <span id="tempoVal">100%</span></label>
+      <label id="pHandBox">Øv <select id="pHand" aria-label="Hvilken hånd du øver"><option value="both">begge hænder</option><option value="R">kun højre hånd</option><option value="L">kun venstre hånd</option></select></label>
+    </div>
+    <div class="row">
+      <button id="connect">🎹 Tilslut mit klaver</button>
+      <span id="midiStatus">Elklaver: tilslut det med USB, og tryk på knappen. Virker i Chrome, Edge og Opera på computer. Du kan også klikke på tangenterne på skærmen.</span>
+    </div>
+    <div class="row">
+      <label><input type="checkbox" id="byPitch" checked> Del hænder efter tonehøjde</label>
+      <label>Højre hånd fra <select id="split" aria-label="Hvor højre hånd begynder"></select></label>
+      <label>Faldende noder <input id="fade" class="small" type="range" min="0" max="100" step="5" value="100"></label>
+      <label><input id="names" type="checkbox" checked> Tastenavne</label>
+      <label><input id="showStaff" type="checkbox" checked> Noder</label>
+    </div>
   </div>
 
   <div class="legend">
-    <span><span class="dot" style="background:#ff9f43"></span>Højre hånd</span>
-    <span><span class="dot" style="background:#4aa3ff"></span>Venstre hånd</span>
+    <span><span class="dot" style="background:#ff9f43;color:#ff9f43"></span>Højre hånd</span>
+    <span><span class="dot" style="background:#4aa3ff;color:#4aa3ff"></span>Venstre hånd</span>
+    <span><span class="dot" style="background:#5eead4;color:#5eead4"></span>Det du spiller</span>
   </div>
 
   <p class="note">
-    Tryk <b>Åbn MIDI-fil</b> (eller træk en .mid-fil ind på siden) for at spille din egen sang.
-    Har filen to spor eller to kanaler, bruges de som højre og venstre hånd. Ellers er hænderne et gæt ud fra tonehøjde,
-    og så kan du selv flytte delingen med "Højre hånd fra".
+    <b>Lyt:</b> sangen spiller af sig selv. <b>Øv:</b> sangen venter på dig, og går først videre, når du har trykket de rigtige tangenter. <b>Frit spil:</b> bare spil.
+    Åbn en MIDI-fil, eller træk en .mid-fil ind på siden. Har filen to spor eller kanaler, kan de bruges som højre og venstre hånd, ellers deles hænderne efter tonehøjde.
     Pedalen i filen bruges til lyden, men de faldende noder viser, hvor længe tangenten holdes nede.
-    Træk i "Faldende noder" ned mod nul, mens musikken spiller, så overtager nodebladet.
-    Klaverlyden er optagelser af Salamander Grand Piano (Alexander Holm, CC BY 3.0), som hentes fra nettet, så siden skal være online. Kan de ikke hentes, bruges en indbygget syntetiseret lyd. Noderne er forenklede (kun tonehøjde, ingen nodelængder).
-    Tastenavne er danske (H = B). Husk, at ophavsretten til en sang stadig gælder, hvis du deler eller udgiver den.
+    Klaverlyden er optagelser af Salamander Grand Piano (Alexander Holm, CC BY 3.0), som hentes fra nettet, så siden skal være online. Kan de ikke hentes, bruges en indbygget lyd.
+    Noderne er forenklede (kun tonehøjde, ingen nodelængder). Tastenavne er danske (H = B). Ophavsretten til en sang gælder stadig, hvis du deler eller udgiver den.
   </p>
 </main>
 
@@ -521,6 +561,7 @@
 
   var notes = [], END = 0, handMode = 'fixed', splitPitch = 60;
   var T = LEAD, playing = false, last = null, speed = 1, nextIdx = 0;
+  var mode = 'listen', practiceHand = 'both', pr = 0, hits = 0, wrongs = 0, waiting = false, waitStart = 0, curPitches = {};
 
   for (q = 48; q <= 72; q++) {
     var opt = document.createElement('option');
@@ -564,7 +605,7 @@
     nextIdx = 0;
     playing = false;
     last = null;
-    playBtn.textContent = '▶ Afspil';
+    setPlayLabel(); resetPractice();
 
     var txt = 'Sang: ' + title + ' (' + notes.length + ' toner)';
     if (extra.dropped) txt += ' · ' + extra.dropped + ' næsten uhørlige toner uden for klaveret er ignoreret';
@@ -590,11 +631,12 @@
     ensureAudio();
     playing = !playing;
     last = null;
-    playBtn.textContent = playing ? '⏸ Pause' : '▶ Afspil';
+    setPlayLabel();
   });
   restartBtn.addEventListener('click', function () {
     T = LEAD;
     nextIdx = 0;
+    resetPractice();
   });
   tempo.addEventListener('input', function () {
     speed = tempo.value / 100;
@@ -606,6 +648,7 @@
   seek.addEventListener('input', function () {
     T = LEAD + (seek.value / 1000) * (END - LEAD);
     nextIdx = firstAfter(T);
+    pr = nextIdx; waiting = false;
   });
   splitSel.addEventListener('change', function () {
     splitPitch = Number(splitSel.value);
@@ -626,9 +669,158 @@
     if (f) loadMidiFile(f);
   });
 
+
+  // ---------- Dit eget spil: elklaver (Web MIDI), skærmtangenter, moduser ----------
+  var playBtn2 = playBtn;
+  var down = {}, live = {}, pedal = false, pedalHeld = [];
+  var modeHelp = $('modeHelp'), statsEl = $('stats'), pHandSel = $('pHand'), pHandBox = $('pHandBox');
+  var midiStatus = $('midiStatus'), connectBtn = $('connect');
+  var HELP = {
+    listen: 'Lyt: sangen spiller af sig selv, og du kan se, hvilke tangenter der bliver trykket.',
+    practice: 'Øv: sangen venter på dig. Tryk de tangenter, der lyser, så går den videre.',
+    free: 'Frit spil: spil på dit elklaver (eller klik på tangenterne), så lyser de og lyder.'
+  };
+
+  function setPlayLabel() {
+    playBtn.textContent = playing ? '⏸ Pause' : (mode === 'practice' ? '▶ Start øvning' : '▶ Afspil');
+  }
+  function isReq(n) { return practiceHand === 'both' || n.hand === practiceHand; }
+  function reqTotal() { var c = 0; notes.forEach(function (n) { if (isReq(n)) c++; }); return c; }
+  function resetPractice() { pr = 0; hits = 0; wrongs = 0; waiting = false; curPitches = {}; }
+
+  function reqGroup() {
+    while (pr < notes.length && !isReq(notes[pr])) pr++;
+    if (pr >= notes.length) return null;
+    var t0 = notes[pr].t, idx = [], j = pr;
+    for (; j < notes.length && notes[j].t < t0 + 0.04; j++) if (isReq(notes[j])) idx.push(j);
+    return { t: t0, idx: idx, end: j };
+  }
+
+  function setMode(m) {
+    mode = m;
+    playing = false; last = null; waiting = false;
+    T = LEAD; nextIdx = 0; resetPractice();
+    modeHelp.textContent = HELP[m];
+    pHandBox.style.display = m === 'practice' ? 'flex' : 'none';
+    playBtn.disabled = m === 'free';
+    restartBtn.disabled = m === 'free';
+    setPlayLabel();
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('input[name=mode]'), function (el) {
+    el.addEventListener('change', function () { if (el.checked) setMode(el.value); });
+  });
+  pHandSel.addEventListener('change', function () { practiceHand = pHandSel.value; T = LEAD; nextIdx = 0; resetPractice(); playing = false; setPlayLabel(); });
+
+  // en tone, der klinger, mens du holder tangenten nede
+  function liveVoice(m, vel) {
+    var ctx = getCtx();
+    if (!ctx) return null;
+    ensureAudio();
+    var at = ctx.currentTime;
+    if (sampleRoots.length && sampleLut[m] !== undefined) {
+      var root = sampleLut[m], v = Math.max(1, Math.min(127, vel || 90)) / 127;
+      var src = ctx.createBufferSource();
+      src.buffer = samples[root];
+      src.playbackRate.value = Math.pow(2, (m - root) / 12);
+      var g = ctx.createGain();
+      g.gain.value = 0.2 + 0.8 * Math.pow(v, 1.4);
+      var lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass'; lp.frequency.value = 3000 + 14000 * v; lp.Q.value = 0.3;
+      src.connect(g); g.connect(lp); lp.connect(master);
+      src.start(at);
+      return { release: function () {
+        var t = ctx.currentTime;
+        g.gain.setTargetAtTime(0.0001, t, 0.1);
+        try { src.stop(t + 1); } catch (e) {}
+      } };
+    }
+    synthVoice(ctx, master, m, vel, 2.5, at);
+    return { release: function () {} };
+  }
+
+  function noteOn(m, vel) {
+    if (m < LO || m > HI || down[m]) return;
+    down[m] = { at: performance.now() };
+    var h = liveVoice(m, vel);
+    if (h) (live[m] = live[m] || []).push(h);
+    if (mode === 'practice' && playing && waiting && !curPitches[m]) wrongs++;
+  }
+  function noteOff(m) {
+    if (!down[m]) return;
+    delete down[m];
+    var hs = live[m] || [];
+    live[m] = [];
+    if (pedal) pedalHeld = pedalHeld.concat(hs);
+    else hs.forEach(function (h) { h.release(); });
+  }
+  function setPedal(on) {
+    pedal = on;
+    if (!on) { pedalHeld.forEach(function (h) { h.release(); }); pedalHeld = []; }
+  }
+
+  function onMidiMsg(e) {
+    var d = e.data, st = d[0] & 0xf0;
+    if (st === 0x90 && d[2] > 0) noteOn(d[1], d[2]);
+    else if (st === 0x80 || st === 0x90) noteOff(d[1]);
+    else if (st === 0xb0 && d[1] === 64) setPedal(d[2] >= 64);
+  }
+  function bindMidi(access) {
+    var names = [];
+    access.inputs.forEach(function (inp) { inp.onmidimessage = onMidiMsg; names.push(inp.name || 'MIDI-enhed'); });
+    midiStatus.textContent = names.length
+      ? '🎹 Tilsluttet: ' + names.join(', ') + ' – spil løs!'
+      : 'Ingen klaver fundet. Sæt USB-kablet i, tænd klaveret, og tryk på knappen igen.';
+  }
+  connectBtn.addEventListener('click', function () {
+    ensureAudio();
+    if (!navigator.requestMIDIAccess) {
+      midiStatus.textContent = 'Din browser kan ikke tilslutte klaver. Brug Chrome, Edge eller Opera på en computer (ikke iPad/iPhone/Safari).';
+      return;
+    }
+    navigator.requestMIDIAccess().then(function (access) {
+      bindMidi(access);
+      access.onstatechange = function () { bindMidi(access); };
+    }, function () {
+      midiStatus.textContent = 'Adgang til MIDI blev afvist. Tillad det i browseren (lås-ikonet ved adresselinjen), og prøv igen.';
+    });
+  });
+
+  // klik på tangenterne på skærmen
+  var pianoEl = $('piano'), ptrKey = {};
+  function keyAtEvent(e) {
+    var r0 = pianoEl.getBoundingClientRect();
+    var x = (e.clientX - r0.left) * PW / r0.width, y = (e.clientY - r0.top) * PH / r0.height;
+    if (y < KB.top) return -1;
+    var mm, k;
+    for (mm = LO; mm <= HI; mm++) { k = keys[mm]; if (k.black && y < KB.top + KB.bh && x >= k.x && x <= k.x + k.w) return mm; }
+    for (mm = LO; mm <= HI; mm++) { k = keys[mm]; if (!k.black && x >= k.x && x < k.x + k.w) return mm; }
+    return -1;
+  }
+  pianoEl.addEventListener('pointerdown', function (e) {
+    var m = keyAtEvent(e);
+    if (m < 0) return;
+    e.preventDefault();
+    try { pianoEl.setPointerCapture(e.pointerId); } catch (err) {}
+    ptrKey[e.pointerId] = m;
+    noteOn(m, 95);
+  });
+  pianoEl.addEventListener('pointermove', function (e) {
+    var old = ptrKey[e.pointerId];
+    if (old === undefined) return;
+    var m = keyAtEvent(e);
+    if (m >= 0 && m !== old) { noteOff(old); ptrKey[e.pointerId] = m; noteOn(m, 95); }
+  });
+  function ptrUp(e) {
+    var m = ptrKey[e.pointerId];
+    if (m !== undefined) { noteOff(m); delete ptrKey[e.pointerId]; }
+  }
+  pianoEl.addEventListener('pointerup', ptrUp);
+  pianoEl.addEventListener('pointercancel', ptrUp);
+
   // ---------- Tegning ----------
   function activeMap() {
     var a = {};
+    if (mode === 'free') return a;
     for (var i = 0; i < notes.length; i++) {
       var n = notes[i];
       if (n.t > T) break;
@@ -639,7 +831,10 @@
 
   function drawPiano() {
     var ctx = pctx;
-    ctx.fillStyle = '#181c30';
+    var bg = ctx.createLinearGradient(0, 0, 0, KB.top);
+    bg.addColorStop(0, '#0b0e1f');
+    bg.addColorStop(1, '#161b38');
+    ctx.fillStyle = bg;
     ctx.fillRect(0, 0, PW, PH);
 
     // lodrette hjælpelinjer (kraftigere ved hver C)
@@ -657,7 +852,7 @@
 
     // faldende noder
     var alpha = fade.value / 100;
-    if (alpha > 0) {
+    if (alpha > 0 && mode !== 'free') {
       ctx.save();
       ctx.beginPath();
       ctx.rect(0, 0, PW, KB.top);
@@ -673,8 +868,14 @@
         if (!k) continue;
         var x = k.black ? k.x : k.x + 1;
         var w = k.black ? k.w : k.w - 2;
+        ctx.shadowColor = COL[n.hand];
+        ctx.shadowBlur = 14;
         ctx.fillStyle = COL[n.hand];
-        rr(ctx, x, yt, w, Math.max(6, yb - yt) - 2, 3);
+        rr(ctx, x, yt, w, Math.max(6, yb - yt) - 2, 4);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+        ctx.fillStyle = 'rgba(255,255,255,0.28)';
+        rr(ctx, x + 2, yt + 2, Math.max(1, w - 4), Math.min(5, Math.max(2, yb - yt - 6)), 2);
         ctx.fill();
       }
       ctx.restore();
@@ -685,7 +886,7 @@
     for (mm = LO; mm <= HI; mm++) {
       k = keys[mm];
       if (k.black) continue;
-      ctx.fillStyle = act[mm] ? COL[act[mm]] : '#f4f4f7';
+      ctx.fillStyle = down[mm] ? '#5eead4' : (act[mm] ? COL[act[mm]] : '#f4f4f7');
       ctx.fillRect(k.x + 0.5, KB.top, k.w - 1, KB.h);
       if (namesBox.checked) {
         var pc = pcOf(mm), nm = NAMES[pc];
@@ -701,18 +902,22 @@
     for (mm = LO; mm <= HI; mm++) {
       k = keys[mm];
       if (!k.black) continue;
-      ctx.fillStyle = act[mm] ? COL[act[mm]] : '#1b1b22';
+      ctx.fillStyle = down[mm] ? '#2bbfa8' : (act[mm] ? COL[act[mm]] : '#1b1b22');
       ctx.fillRect(k.x, KB.top, k.w, KB.bh);
     }
 
     // trefflinje
-    ctx.fillStyle = 'rgba(255,255,255,0.25)';
-    ctx.fillRect(0, KB.top - 1, PW, 2);
+    ctx.save();
+    ctx.shadowColor = waiting ? '#5eead4' : '#7c6cff';
+    ctx.shadowBlur = 16;
+    ctx.fillStyle = waiting ? 'rgba(94,234,212,0.9)' : 'rgba(150,140,255,0.8)';
+    ctx.fillRect(0, KB.top - 2, PW, 3);
+    ctx.restore();
   }
 
   function drawStaff() {
     var ctx = sctx;
-    ctx.fillStyle = '#181c30';
+    ctx.fillStyle = '#12162b';
     ctx.fillRect(0, 0, SW, SH);
 
     // nodelinjer (diskant og bas)
@@ -739,7 +944,7 @@
     ctx.lineTo(PLAYX, SH - 4);
     ctx.stroke();
 
-    for (var i = 0; i < notes.length; i++) {
+    for (var i = 0; mode !== 'free' && i < notes.length; i++) {
       var n = notes[i];
       var x = PLAYX + (n.t - T) * PPS;
       if (x > SW + 10) break;                    // sorteret: resten er længere til højre
@@ -787,6 +992,20 @@
       }
       ctx.globalAlpha = 1;
     }
+
+    // det du selv spiller lige nu
+    Object.keys(down).forEach(function (key) {
+      var m = Number(key), y = yOf(stepOf(m));
+      ctx.fillStyle = '#5eead4';
+      ctx.save();
+      ctx.translate(PLAYX, y);
+      ctx.rotate(-0.35);
+      ctx.beginPath();
+      ctx.ellipse(0, 0, 7.5, 5.4, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+      if (SHARP[pcOf(m)]) { ctx.font = '16px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.fillText('♯', PLAYX - 19, y + 5); }
+    });
   }
 
   // ---------- Hovedløkken ----------
@@ -795,7 +1014,27 @@
     var dt = Math.min(0.05, (now - last) / 1000);
     last = now;
 
-    if (playing) {
+    if (playing && mode === 'practice') {
+      var adv = dt * speed, g = reqGroup();
+      if (g && T + adv >= g.t) {
+        if (!waiting) {
+          waiting = true; waitStart = performance.now();
+          curPitches = {};
+          g.idx.forEach(function (i) { curPitches[notes[i].m] = true; });
+        }
+        T = g.t;
+        var ok = g.idx.every(function (i) { var d = down[notes[i].m]; return d && d.at >= waitStart - 250; });
+        if (ok) { hits += g.idx.length; pr = g.end; waiting = false; curPitches = {}; T = g.t + 0.001; }
+      } else {
+        T += adv; waiting = false;
+        if (!g && T > END) { playing = false; setPlayLabel(); }
+      }
+      // den hånd du ikke øver, spiller af sig selv
+      while (nextIdx < notes.length && notes[nextIdx].t <= T + AHEAD * speed) {
+        var an = notes[nextIdx++];
+        if (!isReq(an) && actx) voice(actx, master, an.m, an.v, an.ds / speed, actx.currentTime + Math.max(0, (an.t - T) / speed));
+      }
+    } else if (playing) {
       T += dt * speed;
       // toner planlægges lidt forud på lydens eget ur, så rytmen er jævn selv om billedet hakker
       while (nextIdx < notes.length && notes[nextIdx].t <= T + AHEAD * speed) {
@@ -808,12 +1047,20 @@
       }
     }
 
+    var st = '';
+    if (mode === 'practice') {
+      var tot = reqTotal();
+      st = 'Ramt: ' + hits + ' / ' + tot + (wrongs ? ' · Forkerte: ' + wrongs : '') + (hits >= tot && tot > 0 ? ' · Færdig! 🎉' : '');
+    }
+    if (statsEl.textContent !== st) statsEl.textContent = st;
+
     seek.value = Math.max(0, Math.min(1000, Math.round((T - LEAD) / (END - LEAD) * 1000)));
     drawPiano();
     drawStaff();
     requestAnimationFrame(frame);
   }
 
+  modeHelp.textContent = HELP.listen;
   setSong(buildBach(), 'Bach, Præludium i C-dur (forenklet, frit værk)');
   requestAnimationFrame(frame);
   loadSamples();
@@ -821,6 +1068,7 @@
   // Lille hook til test (har ingen betydning for brugeren)
   window.__klaver = {
     notes: function () { return notes; },
+    on: noteOn, off: noteOff, state: function () { return { T: T, hits: hits, wrongs: wrongs, waiting: waiting, playing: playing, mode: mode }; },
     status: function () { return { done: sampleDone, fail: sampleFail, info: soundInfo.textContent }; },
     tone: function (m, vel, dur, len, synth) {
       var sr = 22050, oc = new OfflineAudioContext(1, Math.ceil(sr * len), sr);
